@@ -6,7 +6,7 @@
     </div>
 
     <button class="btn-primary" @click="download" :disabled="loading">
-      {{ loading ? '生成中…' : '下载 VPN 配置文件' }}
+      {{ loading ? '生成中…' : '下载网络配置文件' }}
     </button>
 
     <div class="section-label">安装步骤</div>
@@ -25,7 +25,7 @@ export default {
   name: 'VPNDownloadView',
   data: () => ({
     loading: false,
-    steps: ['设置 → 通用 → VPN与设备管理 → 安装描述文件', '设置 → 关于本机 → 证书信任设置 → 开启信任', '设置 → VPN → 连接']
+    steps: ['设置 → 通用 → VPN与设备管理 → 安装描述文件', '设置 → 关于本机 → 证书信任设置 → 开启根证书信任', '设置 → 代理 → 连接']
   }),
   methods: {
     async download() {

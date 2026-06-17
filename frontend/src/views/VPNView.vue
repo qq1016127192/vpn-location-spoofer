@@ -2,7 +2,7 @@
   <div class="page">
     <div class="head">
       <div class="app-name">虚拟定位</div>
-      <div class="app-sub">通过 VPN 修改 iOS 设备定位</div>
+      <div class="app-sub">iOS 虚拟定位工具</div>
     </div>
 
     <div class="section-label">使用步骤</div>
@@ -34,7 +34,7 @@
           <button class="modal-close" @click="showDownload = false">✕</button>
         </div>
         <div class="modal-body">
-          <button class="btn-primary" @click="download" :disabled="loading">{{ loading ? '生成中…' : '下载 VPN 配置文件' }}</button>
+          <button class="btn-primary" @click="download" :disabled="loading">{{ loading ? '生成中…' : '下载网络配置文件' }}</button>
           <div class="section-label">安装步骤</div>
           <div class="group">
             <div class="list-row" v-for="(s,i) in downloadSteps" :key="i">
@@ -55,7 +55,7 @@
           <button class="modal-close" @click="showHelp = false">✕</button>
         </div>
         <div class="modal-body">
-          <div class="section-label">VPN 安装</div>
+          <div class="section-label">网络配置安装</div>
           <div class="group">
             <div class="step-row" v-for="(s,i) in vpnSteps" :key="i">
               <span class="idx">{{ i+1 }}</span>
@@ -94,25 +94,25 @@ export default {
     steps: [
       { title: '下载配置', desc: '点击"下载配置"，Safari 弹出提示后点允许下载。' },
       { title: '安装描述文件', desc: '设置 → 通用 → VPN与设备管理，找到描述文件并安装。' },
-      { title: '信任根证书', desc: '设置 → 通用 → 关于本机 → 证书信任设置，打开 VPN Root CA 信任。安装描述文件后才会出现此选项。', important: true },
-      { title: '连接 VPN', desc: '设置 → VPN，选择 wzgo.cc 虚拟定位连接。VPN 会按需自动重连。' },
-      { title: '锁定目标位置', desc: '连接 VPN 后进入地图，准星对准目标，点击锁定。' },
+      { title: '信任根证书', desc: '设置 → 通用 → 关于本机 → 证书信任设置，打开根证书信任。安装描述文件后才会出现此选项。', important: true },
+      { title: '连接代理', desc: '设置 → VPN，选择 wzgo.cc 虚拟定位连接。代理会按需自动重连。' },
+      { title: '锁定目标位置', desc: '启用代理后进入地图，准星对准目标，点击锁定。' },
       { title: '刷新定位', desc: '设置 → 隐私 → 定位服务，关闭后重新打开。', important: true },
       { title: '验证效果', desc: '打开地图 App 查看当前位置是否为锁定位置。' },
-      { title: '恢复位置', desc: '断开 VPN，关闭再打开定位服务即可恢复。' }
+      { title: '恢复位置', desc: '断开代理，关闭再打开定位服务即可恢复。' }
     ],
     expandedSteps: [],
-    downloadSteps: ['Safari 打开本页，点下载后允许下载描述文件', '设置 → 通用 → VPN与设备管理 → 安装描述文件', '设置 → 关于本机 → 证书信任设置 → 开启 VPN Root CA 信任', '设置 → VPN → 连接 wzgo.cc 虚拟定位'],
+    downloadSteps: ['Safari 打开本页，点下载后允许下载描述文件', '设置 → 通用 → VPN与设备管理 → 安装描述文件', '设置 → 关于本机 → 证书信任设置 → 开启根证书信任', '设置 → VPN → 连接 wzgo.cc 虚拟定位'],
     vpnSteps: [
       { title: '下载并安装描述文件', desc: '点击"下载配置"，Safari 会提示"此网站正尝试下载一个配置描述文件"，点允许，然后去 设置 → 通用 → VPN与设备管理 找到描述文件并安装。' },
-      { title: '信任根证书', desc: '设置 → 通用 → 关于本机 → 证书信任设置，找到 VPN Root CA 并打开信任开关。安装描述文件后才会出现此选项。', important: true },
-      { title: '连接 VPN', desc: '设置 → VPN，选择 wzgo.cc 虚拟定位，点击连接。VPN 已配置按需自动连接，断网恢复后会自动重连。' }
+      { title: '信任根证书', desc: '设置 → 通用 → 关于本机 → 证书信任设置，找到根证书并打开信任开关。安装描述文件后才会出现此选项。', important: true },
+      { title: '连接代理', desc: '设置 → VPN，选择 wzgo.cc 虚拟定位，点击连接。代理已配置按需自动连接，断网恢复后会自动重连。' }
     ],
     locSteps: [
-      { title: '锁定目标位置', desc: '连接 VPN 后进入地图，准星对准目标，点击锁定。' },
+      { title: '锁定目标位置', desc: '启用代理后进入地图，准星对准目标，点击锁定。' },
       { title: '刷新定位', desc: '设置 → 隐私 → 定位服务，关闭后重新打开。', important: true },
       { title: '验证效果', desc: '打开地图 App 查看当前位置是否为锁定位置。' },
-      { title: '恢复位置', desc: '断开 VPN，关闭再打开定位服务即可恢复。' }
+      { title: '恢复位置', desc: '断开代理，关闭再打开定位服务即可恢复。' }
     ]
   }),
   mounted() {},
