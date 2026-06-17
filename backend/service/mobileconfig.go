@@ -87,7 +87,7 @@ func GenerateMobileConfig(serverAddr, username, password string, caCertPEM []byt
 			<key>IPv4</key>
 			<dict>
 				<key>OverridePrimary</key>
-				<integer>1</integer>
+				<integer>0</integer>
 			</dict>
 			<key>PayloadDescription</key>
 			<string>wzgo.cc 网络加速</string>

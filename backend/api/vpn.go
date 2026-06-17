@@ -66,7 +66,7 @@ func LockLocation(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "位置锁定成功"})
 }
 
-// SetSpoofLocation 设置虚拟定位位置
+// SetSpoofLocation 设置虚拟定位位置（按客户端 VPN IP 隔离）
 func SetSpoofLocation(c *gin.Context) {
 	var req struct {
 		Latitude  float64 `json:"latitude" binding:"required"`
@@ -78,12 +78,15 @@ func SetSpoofLocation(c *gin.Context) {
 		return
 	}
 
-	// 通过全局单例设置位置，确保和跑着的 proxy 是同一个实例
+	// 取客户端 IP（VPN 连接后是 10.10.0.x）
+	clientIP := c.ClientIP()
+
 	proxy := mitm.GetLocationProxy(8081)
-	proxy.SetSpoofLocation(req.Latitude, req.Longitude)
+	proxy.SetSpoofLocation(clientIP, req.Latitude, req.Longitude)
 
 	c.JSON(200, gin.H{
 		"message":   "虚拟位置设置成功",
+		"client_ip": clientIP,
 		"latitude":  req.Latitude,
 		"longitude": req.Longitude,
 	})

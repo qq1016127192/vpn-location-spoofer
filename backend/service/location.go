@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"sync"
+	"time"
 )
 
 // LocationService 位置服务
@@ -68,6 +69,5 @@ func (s *LocationService) UnlockLocation(userID string) error {
 
 // getCurrentTimestamp 获取当前时间戳
 func getCurrentTimestamp() int64 {
-	// 简化实现，实际应该使用time.Now().Unix()
-	return 0
+	return time.Now().Unix()
 }
