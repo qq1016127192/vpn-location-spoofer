@@ -46,11 +46,10 @@ func SetupRoutes(r *gin.Engine) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// 前端配置接口：把需要的配置下发给前端
+	// 前端配置接口
 	r.GET("/api/config", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"amapKey":          config.Config.VPN.APIKey,
-			"amapSecurityCode": config.Config.VPN.SecurityCode,
+			"serverAddress": config.Config.VPN.ServerAddress,
 		})
 	})
 	// proxy.pac：只代理 Apple 定位服务到 8081，其余流量直连

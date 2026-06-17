@@ -2,26 +2,11 @@ server:
   port: 8080
   mode: debug
 
-database:
-  host: 127.0.0.1
-  port: 3306
-  username: jikhu
-  password: jikhu
-  database: jikhu
-  charset: utf8mb4
-
 vpn:
-  api_key: 9609abf363a3f7c1e377ef7cf04cde8b
-  security_code: b08b781b102877ccf39ac502fd9b8aa0
   server_address: 192.168.10.7
-  search_key: "469fd89a94d1010bcf434693baaa70f1"
-  ipsec_bin: /opt/homebrew/sbin/ipsec
+  ipsec_bin: /opt/homebrew/bin/ipsec
   ipsec_secrets: /opt/homebrew/etc/ipsec.secrets
 
 cert:
   root_ca_path: /Users/yangyongxing/Desktop/jikeh/vpn-location-spoofer/vpn-config/caCert.pem
   root_key_path: /Users/yangyongxing/Desktop/jikeh/vpn-location-spoofer/vpn-config/caKey.pem
-  
-auth:
-  jwt_secret: your_jwt_secret_key
-  expire_hours: 24
