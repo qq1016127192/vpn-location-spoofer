@@ -115,33 +115,31 @@ openssl x509 -in $CERT_DIR/caCert.pem -noout -subject -dates | head -3
 
 # ── 3. 构建前端 ────────────────────────────────────────────────────────────────
 log "[3/8] 构建前端..."
-cd frontend
+cd "$SCRIPT_DIR/frontend"
 npm install --silent
 npm run build
-cd ..
+cd "$SCRIPT_DIR"
 ok "前端构建完成"
 
 # ── 4. 编译后端 ────────────────────────────────────────────────────────────────
 log "[4/8] 编译后端..."
 cd "$SCRIPT_DIR"
-# 如果已有预编译的二进制，直接用；否则在服务器上编译
 if [ -f "$SCRIPT_DIR/vpn-server" ]; then
   cp "$SCRIPT_DIR/vpn-server" /tmp/vpn-server
   ok "使用预编译二进制"
 else
-  cd backend
+  cd "$SCRIPT_DIR/backend"
   go build -ldflags="-s -w" -o /tmp/vpn-server .
   cd "$SCRIPT_DIR"
 fi
-cd ..
 ok "后端编译完成"
 
 # ── 5. 部署应用文件 ────────────────────────────────────────────────────────────
 log "[5/8] 部署应用文件..."
 mkdir -p $DEPLOY_DIR/frontend
 
-cp /tmp/vpn-server         $DEPLOY_DIR/vpn-server
-cp -r frontend/dist        $DEPLOY_DIR/frontend/dist
+cp /tmp/vpn-server                   $DEPLOY_DIR/vpn-server
+cp -r "$SCRIPT_DIR/frontend/dist"    $DEPLOY_DIR/frontend/dist
 chmod +x $DEPLOY_DIR/vpn-server
 
 # 生成 config.yaml（不含数据库）
