@@ -219,6 +219,11 @@ fi
 SWAN_SVC="strongswan-starter"
 systemctl list-units --full --all 2>/dev/null | grep -q "strongswan-starter" || SWAN_SVC="strongswan"
 systemctl enable "$SWAN_SVC"
+# 彻底清理旧进程再启动，避免 "charon is already running" 导致配置不生效
+kill $(cat /var/run/charon.pid 2>/dev/null) 2>/dev/null || true
+kill $(cat /var/run/starter.charon.pid 2>/dev/null) 2>/dev/null || true
+rm -f /var/run/charon.pid /var/run/starter.charon.pid
+sleep 1
 systemctl restart "$SWAN_SVC"
 sleep 3
 
