@@ -112,15 +112,6 @@ func GenerateMobileConfig(serverAddr, username, password string, caCertPEM []byt
 			<string>wzgo.cc 虚拟定位</string>
 			<key>VPNType</key>
 			<string>IKEv2</string>
-			<key>OnDemandEnabled</key>
-			<integer>1</integer>
-			<key>OnDemandRules</key>
-			<array>
-				<dict>
-					<key>Action</key>
-					<string>Connect</string>
-				</dict>
-			</array>
 		</dict>
 		<dict>
 			<key>PayloadCertificateFileName</key>
