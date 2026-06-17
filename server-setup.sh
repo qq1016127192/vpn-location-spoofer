@@ -158,11 +158,39 @@ ok "应用文件部署完成"
 # ── 6. 配置 StrongSwan ─────────────────────────────────────────────────────────
 log "[6/8] 配置 StrongSwan..."
 
-# ipsec.conf（SERVER_IP 动态替换）
-sed \
-  -e "s/left=192\.168\.10\.7/left=$SERVER_IP/g" \
-  -e "s/leftid=192\.168\.10\.7/leftid=$SERVER_IP/g" \
-  vpn-config/ipsec.conf > /etc/ipsec.conf
+# ipsec.conf（NAT 环境：left 用内网 IP，leftid 用公网 IP）
+INTERNAL_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '/src/{print $7}' | head -1)
+[ -z "$INTERNAL_IP" ] && INTERNAL_IP=$(hostname -I | awk '{print $1}')
+
+cat > /etc/ipsec.conf << EOF
+config setup
+    charondebug="ike 2, knl 2, cfg 2"
+    uniqueids=no
+
+conn %default
+    keyexchange=ikev2
+    ike=aes256-sha256-modp2048!
+    esp=aes256-sha256!
+    dpdaction=clear
+    dpddelay=300s
+    rekey=no
+    mobike=yes
+    forceencaps=yes
+    fragmentation=yes
+
+conn ikev2-eap
+    left=$INTERNAL_IP
+    leftid=$SERVER_IP
+    leftcert=serverCert.pem
+    leftsendcert=always
+    leftsubnet=0.0.0.0/0
+    right=%any
+    rightauth=eap-mschapv2
+    rightsourceip=10.10.0.0/24
+    rightdns=8.8.8.8,8.8.4.4
+    eap_identity=%any
+    auto=add
+EOF
 
 cp vpn-config/ipsec.secrets /etc/ipsec.secrets
 chmod 600 /etc/ipsec.secrets
