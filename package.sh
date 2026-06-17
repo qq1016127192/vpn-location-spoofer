@@ -14,6 +14,7 @@ OUTPUT="vpn-package.tar.gz"
 echo "打包项目源码..."
 
 tar -czf $OUTPUT \
+  --no-xattrs \
   --exclude='backend/vendor' \
   --exclude='backend/*.exe' \
   --exclude='backend/vpn-server' \

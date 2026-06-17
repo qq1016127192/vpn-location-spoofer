@@ -22,8 +22,18 @@ die()  { echo "[ERROR] $*"; exit 1; }
 ok()   { echo "[$(date '+%H:%M:%S')] ✓ $*"; }
 warn() { echo "[$(date '+%H:%M:%S')] ⚠ $*"; }
 
+# SERVER_IP 优先用环境变量，否则自动获取公网 IP
+if [ -z "$SERVER_IP" ]; then
+  SERVER_IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null \
+    || curl -s --max-time 5 api.ipify.org 2>/dev/null \
+    || hostname -I | awk '{print $1}')
+fi
 [ -z "$SERVER_IP" ] && die "无法获取服务器 IP，请手动指定: SERVER_IP=1.2.3.4 bash server-setup.sh"
-[ ! -f "backend/go.mod" ] && die "请在解压目录下执行此脚本（找不到 backend/go.mod）"
+
+# 找到脚本所在目录，兼容从任意目录执行
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+[ ! -f "$SCRIPT_DIR/backend/go.mod" ] && die "请在解压目录下执行此脚本（找不到 backend/go.mod）"
+cd "$SCRIPT_DIR"
 
 echo "========================================"
 echo " VPN 虚拟定位系统 - 服务器部署"
