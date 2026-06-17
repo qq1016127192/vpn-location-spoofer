@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>IKEv2</key>
+			<dict>
+				<key>AuthenticationMethod</key>
+				<string>Certificate</string>
+				<key>ChildSecurityAssociationParameters</key>
+				<dict>
+					<key>EncryptionAlgorithm</key>
+					<string>AES-256</string>
+					<key>IntegrityAlgorithm</key>
+					<string>SHA2-256</string>
+					<key>DiffieHellmanGroup</key>
+					<integer>14</integer>
+					<key>LifeTimeInMinutes</key>
+					<integer>1440</integer>
+				</dict>
+				<key>DeadPeerDetectionRate</key>
+				<string>Medium</string>
+				<key>DisableMOBIKE</key>
+				<false/>
+				<key>DisableRedirect</key>
+				<false/>
+				<key>EnableCertificateRevocationCheck</key>
+				<false/>
+				<key>EnablePFS</key>
+				<true/>
+				<key>ExtendedAuthEnabled</key>
+				<true/>
+				<key>IKESecurityAssociationParameters</key>
+				<dict>
+					<key>EncryptionAlgorithm</key>
+					<string>AES-256</string>
+					<key>IntegrityAlgorithm</key>
+					<string>SHA2-256</string>
+					<key>DiffieHellmanGroup</key>
+					<integer>14</integer>
+					<key>LifeTimeInMinutes</key>
+					<integer>1440</integer>
+				</dict>
+				<key>RemoteAddress</key>
+				<string>192.168.10.7</string>
+				<key>RemoteIdentifier</key>
+				<string>192.168.10.7</string>
+				<key>ServerCertificateIssuerCommonName</key>
+				<string>VPN Root CA</string>
+				<key>AuthName</key>
+				<string>test@test.com</string>
+				<key>AuthPassword</key>
+				<string>test123</string>
+				<key>UseConfigurationAttributeInternalIPSubnet</key>
+				<false/>
+			</dict>
+			<key>IPv4</key>
+			<dict>
+				<key>OverridePrimary</key>
+				<integer>1</integer>
+			</dict>
+			<key>PayloadDescription</key>
+			<string>wzgo.cc 网络加速</string>
+			<key>PayloadDisplayName</key>
+			<string>wzgo.cc 虚拟定位</string>
+			<key>PayloadIdentifier</key>
+			<string>cc.wzgo.vpn.managed.3665c580-41fd-4b95-9de8-90fc49cfbe49</string>
+			<key>PayloadType</key>
+			<string>com.apple.vpn.managed</string>
+			<key>PayloadUUID</key>
+			<string>3665c580-41fd-4b95-9de8-90fc49cfbe49</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>Proxies</key>
+			<dict>
+				<key>ProxyAutoConfigEnable</key>
+				<integer>1</integer>
+				<key>ProxyAutoConfigURLString</key>
+				<string>http://192.168.10.7:8080/proxy.pac</string>
+			</dict>
+			<key>UserDefinedName</key>
+			<string>wzgo.cc 虚拟定位</string>
+			<key>VPNType</key>
+			<string>IKEv2</string>
+		</dict>
+		<dict>
+			<key>PayloadCertificateFileName</key>
+			<string>wzgo-ca.cer</string>
+			<key>PayloadContent</key>
+			<data>MIIDxzCCAq+gAwIBAgIURxYFLy9huQ0sRJYRtaOO+oGTraowDQYJKoZIhvcNAQELBQAwczELMAkGA1UEBhMCQ04xEDAOBgNVBAgMB0JlaWppbmcxEDAOBgNVBAcMB0JlaWppbmcxHTAbBgNVBAoMFFZQTiBMb2NhdGlvbiBTcG9vZmVyMQswCQYDVQQLDAJDQTEUMBIGA1UEAwwLVlBOIFJvb3QgQ0EwHhcNMjYwNjE1MjE1MzQzWhcNMzYwNjEyMjE1MzQzWjBzMQswCQYDVQQGEwJDTjEQMA4GA1UECAwHQmVpamluZzEQMA4GA1UEBwwHQmVpamluZzEdMBsGA1UECgwUVlBOIExvY2F0aW9uIFNwb29mZXIxCzAJBgNVBAsMAkNBMRQwEgYDVQQDDAtWUE4gUm9vdCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMbMFdvTexFO8muNQ+yXpt5YEkk6gTzHJDT1t9lr1L3YgH8JAsxGJ8RMjbmjU+N+cskFqZ+1uXnoSh6K9TNoyuG0HuPz49iyD72VUH7xNUiso085l9E4l9mx/bOX7NRrqKQJtsV6p7QEO2XiosENI6BjnZeb+WFwyXD21GdsNBy2XuWMGG+4tBZBKNuwEc5DHASsb+z2I63VRDVYWphzAHt23/9zEicg9QpYARFjE3F3qbw9AFm0vfzWz8guniiodsyPPAPadQifvXSdGKUI7A7L8l4ladw97xo4FPzpAHyzHo1Di3P7RCGANrVWi/eI6rWhXO11lu3HBLpEH/V07ZMCAwEAAaNTMFEwHQYDVR0OBBYEFGPDgv37sHi4dJZXanJ6S8jpQMAaMB8GA1UdIwQYMBaAFGPDgv37sHi4dJZXanJ6S8jpQMAaMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggEBAB6jfsssrSjYMU2Ieh+tP56stAt2Fry1K6Rvjmp1FMctCaz0W3COODaFVYCPTxZ91zLtuoa5MupIJccN4JmHKkpeRyWjsngq7srZjroXmGgyE571S3tA/FEx/PryZ2iK9wBjnDIisFjWMNE/Gf8warboA6j71UnXLrfMWR4uwzPA8TrrcqnzIB4R8lt+mIULSzXpx7kCERDanJStlrb2XVkgmGWYrag02iB51RQDvsr6wXdq6KkHdS8BEPZSopS28+btp6hDYRC/Jf4j+Gmr1AiTyPAUjBuIqCQjio2sXyZ6VDC+MYBPsuY1v+6G69i2cdrr/qm/+816t1VWKY5GRnU=</data>
+			<key>PayloadDescription</key>
+			<string>wzgo.cc 根证书</string>
+			<key>PayloadDisplayName</key>
+			<string>wzgo.cc 根证书</string>
+			<key>PayloadIdentifier</key>
+			<string>cc.wzgo.certificate.root.c3369d9a-879b-402a-8670-394c02044f8d</string>
+			<key>PayloadType</key>
+			<string>com.apple.security.root</string>
+			<key>PayloadUUID</key>
+			<string>c3369d9a-879b-402a-8670-394c02044f8d</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+	<key>PayloadDescription</key>
+	<string>wzgo.cc 虚拟定位配置</string>
+	<key>PayloadDisplayName</key>
+	<string>wzgo.cc 虚拟定位</string>
+	<key>PayloadIdentifier</key>
+	<string>cc.wzgo.profile.da784d59-1df3-49b5-b658-1bbb9cfe0d00</string>
+	<key>PayloadOrganization</key>
+	<string>wzgo.cc</string>
+	<key>PayloadRemovalDisallowed</key>
+	<false/>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>da784d59-1df3-49b5-b658-1bbb9cfe0d00</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

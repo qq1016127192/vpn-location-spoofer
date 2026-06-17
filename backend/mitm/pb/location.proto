@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package pb;
+
+message WifiDevice {
+  string bssid = 1;
+  Location location = 2;
+}
+
+message Location {
+  int64 latitude = 1;
+  int64 longitude = 2;
+  int64 horizontal_accuracy = 3;
+  int64 altitude = 5;
+  int64 vertical_accuracy = 6;
+  int64 motion_activity_type = 11;
+  int64 motion_activity_confidence = 12;
+}
+
+message AppleWLoc {
+  repeated WifiDevice wifi_devices = 2;
+  int32 num_cell_results = 3;
+  int32 num_wifi_results = 4;
+  string app_bundle_id = 5;
+}
