@@ -36,7 +36,7 @@ func GenerateMobileConfig(serverAddr, username, password string, caCertPEM []byt
 			<key>IKEv2</key>
 			<dict>
 				<key>AuthenticationMethod</key>
-				<string>Certificate</string>
+				<string>None</string>
 				<key>ChildSecurityAssociationParameters</key>
 				<dict>
 					<key>EncryptionAlgorithm</key>
