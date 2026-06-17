@@ -13,6 +13,11 @@ OUTPUT="vpn-package.tar.gz"
 
 echo "打包项目源码..."
 
+# 本地编译 Linux 二进制
+echo "编译 Linux amd64 二进制..."
+(cd backend && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../vpn-server .)
+echo "编译完成"
+
 tar -czf $OUTPUT \
   --no-xattrs \
   --exclude='backend/vendor' \
@@ -21,8 +26,7 @@ tar -czf $OUTPUT \
   --exclude='backend/vpn-server-linux' \
   --exclude='backend/vpn_server' \
   --exclude='backend/backend' \
-  --exclude='backend/*.txt' \
-  --exclude='frontend/node_modules' \
+  --exclude='backend/*.txt' \  --exclude='frontend/node_modules' \
   --exclude='frontend/dist' \
   --exclude='frontend/*.zip' \
   --exclude='.DS_Store' \
@@ -43,7 +47,11 @@ tar -czf $OUTPUT \
   vpn-config/ipsec.conf \
   vpn-config/ipsec.secrets \
   vpn-config/swanctl.conf \
-  server-setup.sh
+  server-setup.sh \
+  vpn-server
+
+# 清理临时二进制
+rm -f vpn-server
 
 echo ""
 echo "打包完成: $OUTPUT ($(du -sh $OUTPUT | cut -f1))"

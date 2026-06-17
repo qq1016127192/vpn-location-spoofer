@@ -43,13 +43,24 @@ echo "========================================"
 
 # ── 1. 安装系统依赖 ────────────────────────────────────────────────────────────
 log "[1/8] 安装系统依赖..."
-apt-get update -qq
-DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-  strongswan strongswan-pki \
-  libcharon-extra-plugins libcharon-extauth-plugins \
-  golang-go \
-  nodejs npm \
-  openssl curl iptables iptables-persistent
+
+if command -v apt-get &>/dev/null; then
+  # Debian/Ubuntu
+  apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    strongswan strongswan-pki \
+    libcharon-extra-plugins libcharon-extauth-plugins \
+    golang-go nodejs npm \
+    openssl curl iptables iptables-persistent
+elif command -v yum &>/dev/null; then
+  # CentOS/AlmaLinux/RHEL
+  yum install -y epel-release 2>/dev/null || true
+  yum install -y strongswan golang nodejs npm openssl curl iptables iptables-services
+  systemctl enable iptables 2>/dev/null || true
+elif command -v dnf &>/dev/null; then
+  dnf install -y epel-release 2>/dev/null || true
+  dnf install -y strongswan golang nodejs npm openssl curl iptables iptables-services
+fi
 
 ok "系统依赖安装完成"
 ipsec version | head -1
@@ -112,8 +123,16 @@ ok "前端构建完成"
 
 # ── 4. 编译后端 ────────────────────────────────────────────────────────────────
 log "[4/8] 编译后端..."
-cd backend
-go build -ldflags="-s -w" -o /tmp/vpn-server .
+cd "$SCRIPT_DIR"
+# 如果已有预编译的二进制，直接用；否则在服务器上编译
+if [ -f "$SCRIPT_DIR/vpn-server" ]; then
+  cp "$SCRIPT_DIR/vpn-server" /tmp/vpn-server
+  ok "使用预编译二进制"
+else
+  cd backend
+  go build -ldflags="-s -w" -o /tmp/vpn-server .
+  cd "$SCRIPT_DIR"
+fi
 cd ..
 ok "后端编译完成"
 
@@ -125,19 +144,11 @@ cp /tmp/vpn-server         $DEPLOY_DIR/vpn-server
 cp -r frontend/dist        $DEPLOY_DIR/frontend/dist
 chmod +x $DEPLOY_DIR/vpn-server
 
-# 生成服务器专用 config.yaml
+# 生成 config.yaml（不含数据库）
 cat > $DEPLOY_DIR/config.yaml << EOF
 server:
   port: 8080
   mode: release
-
-database:
-  host: 127.0.0.1
-  port: 3306
-  username: vpnlocation
-  password: $DB_PASS
-  database: vpnlocation
-  charset: utf8mb4
 
 vpn:
   server_address: $SERVER_IP
@@ -147,10 +158,6 @@ vpn:
 cert:
   root_ca_path: $CERT_DIR/caCert.pem
   root_key_path: $CERT_DIR/caKey.pem
-
-auth:
-  jwt_secret: $(openssl rand -hex 32)
-  expire_hours: 24
 EOF
 
 ok "应用文件部署完成"
@@ -158,9 +165,21 @@ ok "应用文件部署完成"
 # ── 6. 配置 StrongSwan ─────────────────────────────────────────────────────────
 log "[6/8] 配置 StrongSwan..."
 
-# ipsec.conf（NAT 环境：left 用内网 IP，leftid 用公网 IP）
+# 检测是否 NAT 环境（内网 IP ≠ 公网 IP）
 INTERNAL_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '/src/{print $7}' | head -1)
 [ -z "$INTERNAL_IP" ] && INTERNAL_IP=$(hostname -I | awk '{print $1}')
+
+if [ "$INTERNAL_IP" = "$SERVER_IP" ]; then
+  # 公网 IP 直接在网卡上（阿里云 ECS/轻量），不需要 forceencaps
+  LEFT_IP="$SERVER_IP"
+  FORCE_ENCAPS="no"
+  log "非 NAT 环境，left=$SERVER_IP"
+else
+  # NAT 环境，left 用内网 IP，leftid 用公网 IP
+  LEFT_IP="$INTERNAL_IP"
+  FORCE_ENCAPS="yes"
+  log "NAT 环境，left=$INTERNAL_IP leftid=$SERVER_IP"
+fi
 
 cat > /etc/ipsec.conf << EOF
 config setup
@@ -175,11 +194,11 @@ conn %default
     dpddelay=300s
     rekey=no
     mobike=yes
-    forceencaps=yes
+    forceencaps=$FORCE_ENCAPS
     fragmentation=yes
 
 conn ikev2-eap
-    left=$INTERNAL_IP
+    left=$LEFT_IP
     leftid=$SERVER_IP
     leftcert=serverCert.pem
     leftsendcert=always
@@ -201,6 +220,7 @@ if [ -n "$CHARON_CONF" ]; then
   cat > "$CHARON_CONF" << 'CHARONEOF'
 charon {
     block_threshold = 0
+    cookie_threshold = 0
     half_open_timeout = 30
     install_routes = yes
     crypto_test {}
@@ -215,11 +235,10 @@ CHARONEOF
   ok "charon.conf 已配置"
 fi
 
-# 启动 StrongSwan（Debian 11 服务名是 strongswan-starter）
+# 启动 StrongSwan
 SWAN_SVC="strongswan-starter"
 systemctl list-units --full --all 2>/dev/null | grep -q "strongswan-starter" || SWAN_SVC="strongswan"
 systemctl enable "$SWAN_SVC"
-# 彻底清理旧进程再启动，避免 "charon is already running" 导致配置不生效
 kill $(cat /var/run/charon.pid 2>/dev/null) 2>/dev/null || true
 kill $(cat /var/run/starter.charon.pid 2>/dev/null) 2>/dev/null || true
 rm -f /var/run/charon.pid /var/run/starter.charon.pid
@@ -230,24 +249,21 @@ sleep 3
 if ipsec statusall 2>/dev/null | grep -q "ikev2-eap"; then
   ok "StrongSwan 已加载 ikev2-eap 配置"
 else
-  warn "StrongSwan 状态异常，请检查:"
+  warn "StrongSwan 状态异常:"
   ipsec statusall | head -15
 fi
 
 # ── 7. IP 转发 + NAT + 防火墙 ─────────────────────────────────────────────────
 log "[7/8] 配置网络..."
 
-# IP 转发持久化
 grep -q "^net.ipv4.ip_forward" /etc/sysctl.conf \
   && sed -i 's|^net.ipv4.ip_forward.*|net.ipv4.ip_forward = 1|' /etc/sysctl.conf \
   || echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
 sysctl -w net.ipv4.ip_forward=1
 
-# 找出口网卡
 OUTIF=$(ip route show default | awk '{print $5}' | head -1)
 log "出口网卡: $OUTIF"
 
-# iptables 规则（幂等）
 iptables -t nat -C POSTROUTING -s 10.10.0.0/24 -o "$OUTIF" -j MASQUERADE 2>/dev/null \
   || iptables -t nat -A POSTROUTING -s 10.10.0.0/24 -o "$OUTIF" -j MASQUERADE
 iptables -C FORWARD -s 10.10.0.0/24 -j ACCEPT 2>/dev/null \
@@ -261,34 +277,15 @@ iptables -C INPUT -p udp --dport 4500 -j ACCEPT 2>/dev/null \
 iptables -C INPUT -p tcp --dport 8080 -j ACCEPT 2>/dev/null \
   || iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 
-# 持久化
 mkdir -p /etc/iptables
-iptables-save > /etc/iptables/rules.v4
-netfilter-persistent save 2>/dev/null || true
+iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+netfilter-persistent save 2>/dev/null || service iptables save 2>/dev/null || true
 
 ok "网络配置完成"
 
-# ── 8. 数据库 + 后端服务 ───────────────────────────────────────────────────────
-log "[8/8] 配置数据库和后端服务..."
+# ── 8. 后端服务 ────────────────────────────────────────────────────────────────
+log "[8/8] 配置后端服务..."
 
-# MySQL（宝塔环境）
-MYSQL_CMD=""
-for p in /www/server/mysql/bin/mysql /usr/bin/mysql /usr/local/mysql/bin/mysql; do
-  [ -x "$p" ] && MYSQL_CMD="$p" && break
-done
-
-if [ -n "$MYSQL_CMD" ]; then
-  $MYSQL_CMD -uroot -e "CREATE DATABASE IF NOT EXISTS vpnlocation CHARACTER SET utf8mb4;" 2>/dev/null || true
-  $MYSQL_CMD -uroot -e "CREATE USER IF NOT EXISTS 'vpnlocation'@'localhost' IDENTIFIED BY '$DB_PASS';" 2>/dev/null || true
-  $MYSQL_CMD -uroot -e "GRANT ALL ON vpnlocation.* TO 'vpnlocation'@'localhost';" 2>/dev/null || true
-  $MYSQL_CMD -uroot -e "FLUSH PRIVILEGES;" 2>/dev/null || true
-  ok "数据库初始化完成"
-else
-  warn "未找到 MySQL，请在宝塔面板创建数据库后重启服务"
-  warn "  数据库名: vpnlocation  用户: vpnlocation  密码: $DB_PASS"
-fi
-
-# systemd 服务
 cat > /etc/systemd/system/vpn-location.service << EOF
 [Unit]
 Description=VPN Location Server
