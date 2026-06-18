@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/vpn-location/backend/config"
 	"github.com/vpn-location/backend/mitm"
+	"github.com/vpn-location/backend/model"
 	"github.com/vpn-location/backend/nat"
 	"github.com/vpn-location/backend/router"
 	"go.uber.org/zap"
@@ -11,12 +12,13 @@ import (
 
 func main() {
 	config.Init()
+	model.InitUserStore("data")
 
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
 	// 配置 IP 转发 + NAT
-	nat.Setup("10.10.0.0/24", logger)
+	nat.Setup("10.10.0.0/16", logger)
 
 	// 启动 MITM 代理
 	locationProxy := mitm.GetLocationProxy(8081)

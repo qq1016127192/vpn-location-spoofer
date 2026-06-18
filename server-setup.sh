@@ -3,9 +3,11 @@
 #
 # 用法（服务器上执行）:
 #   SERVER_IP=103.231.59.141 bash server-setup.sh
+#   SERVER_IP=103.231.59.141 SERVER_DOMAIN=map.iosr.cn bash server-setup.sh
 #
 # 可选参数:
-#   DB_PASS=自定义密码   数据库密码（默认 vpnpass2024）
+#   SERVER_DOMAIN=xxx.com    域名（可选，用于证书 SAN 和 leftid）
+#   DB_PASS=自定义密码       数据库密码（默认 vpnpass2024）
 #
 # 前置条件：已将 vpn-package.tar.gz 解压到当前目录
 
@@ -13,9 +15,13 @@ set -e
 
 # ── 参数 ──────────────────────────────────────────────────────────────────────
 SERVER_IP="${SERVER_IP:-$(curl -s --max-time 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')}"
+SERVER_DOMAIN="${SERVER_DOMAIN:-}"
 DB_PASS="${DB_PASS:-vpnpass2024}"
 DEPLOY_DIR="/opt/vpn-location"
 CERT_DIR="$DEPLOY_DIR/certs"
+
+# VPN 配置地址：优先域名
+VPN_SERVER_ADDR="${SERVER_DOMAIN:-$SERVER_IP}"
 
 log()  { echo "[$(date '+%H:%M:%S')] $*"; }
 die()  { echo "[ERROR] $*"; exit 1; }
@@ -38,6 +44,7 @@ cd "$SCRIPT_DIR"
 echo "========================================"
 echo " VPN 虚拟定位系统 - 服务器部署"
 echo " SERVER_IP : $SERVER_IP"
+echo " 域名     : ${SERVER_DOMAIN:-（无）}"
 echo " DEPLOY_DIR: $DEPLOY_DIR"
 echo "========================================"
 
@@ -87,8 +94,20 @@ openssl req -new \
   -subj "/C=CN/ST=Beijing/O=VPN Location Spoofer/OU=Server/CN=$SERVER_IP"
 
 # SAN 扩展（iOS 16+ 必须）
+# 构建 SAN：同时支持 IP 和域名
+SAN_ENTRIES=""
+if echo "$SERVER_IP" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+  SAN_ENTRIES="IP:$SERVER_IP"
+else
+  SAN_ENTRIES="DNS:$SERVER_IP"
+fi
+if [ -n "$SERVER_DOMAIN" ]; then
+  SAN_ENTRIES="$SAN_ENTRIES,DNS:$SERVER_DOMAIN"
+fi
+log "证书 SAN: $SAN_ENTRIES"
+
 cat > /tmp/server_ext.cnf << EOF
-subjectAltName = IP:$SERVER_IP
+subjectAltName = $SAN_ENTRIES
 extendedKeyUsage = serverAuth
 EOF
 
@@ -136,6 +155,10 @@ ok "后端编译完成"
 
 # ── 5. 部署应用文件 ────────────────────────────────────────────────────────────
 log "[5/8] 部署应用文件..."
+
+# 先停止服务（避免 "Text file busy" 错误）
+systemctl stop vpn-location 2>/dev/null || true
+sleep 1
 mkdir -p $DEPLOY_DIR/frontend
 
 cp /tmp/vpn-server                   $DEPLOY_DIR/vpn-server
@@ -149,7 +172,7 @@ server:
   mode: release
 
 vpn:
-  server_address: $SERVER_IP
+  server_address: $VPN_SERVER_ADDR
   ipsec_bin: /usr/sbin/ipsec
   ipsec_secrets: /etc/ipsec.secrets
 
@@ -176,7 +199,7 @@ else
   # NAT 环境，left 用内网 IP，leftid 用公网 IP
   LEFT_IP="$INTERNAL_IP"
   FORCE_ENCAPS="yes"
-  log "NAT 环境，left=$INTERNAL_IP leftid=$SERVER_IP"
+  log "NAT 环境，left=$INTERNAL_IP leftid=$VPN_SERVER_ADDR"
 fi
 
 cat > /etc/ipsec.conf << EOF
@@ -197,13 +220,13 @@ conn %default
 
 conn ikev2-eap
     left=$LEFT_IP
-    leftid=$SERVER_IP
+    leftid=$VPN_SERVER_ADDR
     leftcert=serverCert.pem
     leftsendcert=always
     leftsubnet=0.0.0.0/0
     right=%any
     rightauth=eap-mschapv2
-    rightsourceip=10.10.0.0/24
+    rightsourceip=10.10.0.0/16
     rightdns=8.8.8.8,8.8.4.4
     eap_identity=%any
     auto=add
@@ -262,12 +285,12 @@ sysctl -w net.ipv4.ip_forward=1
 OUTIF=$(ip route show default | awk '{print $5}' | head -1)
 log "出口网卡: $OUTIF"
 
-iptables -t nat -C POSTROUTING -s 10.10.0.0/24 -o "$OUTIF" -j MASQUERADE 2>/dev/null \
-  || iptables -t nat -A POSTROUTING -s 10.10.0.0/24 -o "$OUTIF" -j MASQUERADE
-iptables -C FORWARD -s 10.10.0.0/24 -j ACCEPT 2>/dev/null \
-  || iptables -A FORWARD -s 10.10.0.0/24 -j ACCEPT
-iptables -C FORWARD -d 10.10.0.0/24 -j ACCEPT 2>/dev/null \
-  || iptables -A FORWARD -d 10.10.0.0/24 -j ACCEPT
+iptables -t nat -C POSTROUTING -s 10.10.0.0/16 -o "$OUTIF" -j MASQUERADE 2>/dev/null \
+  || iptables -t nat -A POSTROUTING -s 10.10.0.0/16 -o "$OUTIF" -j MASQUERADE
+iptables -C FORWARD -s 10.10.0.0/16 -j ACCEPT 2>/dev/null \
+  || iptables -A FORWARD -s 10.10.0.0/16 -j ACCEPT
+iptables -C FORWARD -d 10.10.0.0/16 -j ACCEPT 2>/dev/null \
+  || iptables -A FORWARD -d 10.10.0.0/16 -j ACCEPT
 iptables -C INPUT -p udp --dport 500  -j ACCEPT 2>/dev/null \
   || iptables -A INPUT -p udp --dport 500  -j ACCEPT
 iptables -C INPUT -p udp --dport 4500 -j ACCEPT 2>/dev/null \
@@ -318,12 +341,13 @@ echo ""
 echo "========================================"
 echo " 部署完成！"
 echo ""
-echo " Web 面板 : http://$SERVER_IP:8080"
-echo " VPN 地址 : $SERVER_IP (UDP 500/4500)"
+echo " Web 面板 : http://$VPN_SERVER_ADDR:8080"
+echo " VPN 地址 : $VPN_SERVER_ADDR (UDP 500/4500)"
+[ -n "$SERVER_DOMAIN" ] && echo " VPN IP   : $SERVER_IP"
 echo " VPN 账号 : vpnuser / vpnpass2024"
 echo ""
 echo " iOS 安装步骤:"
-echo "  1. Safari 打开 http://$SERVER_IP:8080"
+echo "  1. Safari 打开 http://$VPN_SERVER_ADDR:8080"
 echo "  2. 点击「下载 VPN 配置」"
 echo "  3. 设置 → 通用 → VPN与设备管理 → 安装描述文件"
 echo "  4. 设置 → 通用 → 关于本机 → 证书信任 → 信任新 CA"

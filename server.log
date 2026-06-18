@@ -1,0 +1,7 @@
+panic: 读取配置文件失败: open config.yaml: no such file or directory
+
+goroutine 1 [running]:
+github.com/vpn-location/backend/config.Init()
+	/Users/yangyongxing/Desktop/jikeh/vpn-location-spoofer/backend/config/config.go:39 +0xf8
+main.main()
+	/Users/yangyongxing/Desktop/jikeh/vpn-location-spoofer/backend/main.go:13 +0x2c

@@ -4,10 +4,10 @@
 
 | 项目 | 值 |
 |---|---|
-| 服务器 IP | 101.37.76.102 |
+| 服务器 IP | 116.62.147.43 |
 | 域名 | wz.iosr.cn |
 | Web 面板 | http://wz.iosr.cn |
-| VPN 地址 | 101.37.76.102 (UDP 500/4500) |
+| VPN 地址 | 116.62.147.43 (UDP 500/4500) |
 | VPN 账号 | vpnuser / vpnpass2024 |
 
 ---
@@ -74,10 +74,10 @@ nginx -t && systemctl reload nginx
 bash package.sh
 
 # 上传
-scp vpn-package.tar.gz root@101.37.76.102:/root/
+scp vpn-package.tar.gz root@116.62.147.43:/root/
 
 # 服务器上更新
-ssh root@101.37.76.102
+ssh root@116.62.147.43
 mkdir /tmp/update && tar -xzf /root/vpn-package.tar.gz -C /tmp/update
 systemctl stop vpn-location
 cp /tmp/update/vpn-server /opt/vpn-location/vpn-server
@@ -138,9 +138,9 @@ openssl req -new -x509 -days 3650 -key certs/caKey.pem -out certs/caCert.pem \
   -subj "/C=CN/O=VPN Location Spoofer/OU=CA/CN=VPN Root CA"
 openssl genrsa -out certs/serverKey.pem 2048
 openssl req -new -key certs/serverKey.pem -out /tmp/serverReq.pem \
-  -subj "/C=CN/O=VPN Location Spoofer/OU=Server/CN=101.37.76.102"
+  -subj "/C=CN/O=VPN Location Spoofer/OU=Server/CN=116.62.147.43"
 cat > /tmp/ext.cnf << EOF
-subjectAltName = IP:101.37.76.102
+subjectAltName = IP:116.62.147.43
 extendedKeyUsage = serverAuth
 EOF
 openssl x509 -req -in /tmp/serverReq.pem -CA certs/caCert.pem -CAkey certs/caKey.pem \

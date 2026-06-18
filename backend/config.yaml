@@ -1,12 +1,12 @@
 server:
   port: 8080
-  mode: debug
+  mode: release
 
 vpn:
-  server_address: 192.168.10.7
-  ipsec_bin: /opt/homebrew/bin/ipsec
-  ipsec_secrets: /opt/homebrew/etc/ipsec.secrets
+  server_address: map.iosr.cn
+  ipsec_bin: /usr/sbin/ipsec
+  ipsec_secrets: /etc/ipsec.secrets
 
 cert:
-  root_ca_path: /Users/yangyongxing/Desktop/jikeh/vpn-location-spoofer/vpn-config/caCert.pem
-  root_key_path: /Users/yangyongxing/Desktop/jikeh/vpn-location-spoofer/vpn-config/caKey.pem
+  root_ca_path: /etc/ipsec.d/cacerts/caCert.pem
+  root_key_path: /etc/ipsec.d/private/caKey.pem

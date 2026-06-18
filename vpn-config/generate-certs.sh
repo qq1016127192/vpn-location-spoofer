@@ -1,15 +1,23 @@
 #!/bin/bash
 
 # 生成VPN服务器证书，并自动同步 CA 到 vpn.mobileconfig
-# 用法: SERVER_IP=你的服务器IP bash generate-certs.sh
-# 默认使用 192.168.10.7，修改 SERVER_IP 变量以匹配你的实际 IP
+# 用法:
+#   SERVER_IP=你的服务器IP bash generate-certs.sh
+#   SERVER_IP=1.2.3.4 SERVER_DOMAIN=map.iosr.cn bash generate-certs.sh
+#
+# 支持三种模式:
+#   纯 IP:    SERVER_IP=1.2.3.4                     → IP SAN
+#   纯 域名:  SERVER_DOMAIN=map.iosr.cn              → DNS SAN
+#   IP+域名:  SERVER_IP=1.2.3.4 SERVER_DOMAIN=map.iosr.cn → IP SAN + DNS SAN
 
 SERVER_IP="${SERVER_IP:-192.168.10.7}"
+SERVER_DOMAIN="${SERVER_DOMAIN:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MOBILECONFIG="$SCRIPT_DIR/../vpn.mobileconfig"
 cd "$SCRIPT_DIR"
 
 echo "使用服务器IP: $SERVER_IP"
+[ -n "$SERVER_DOMAIN" ] && echo "使用服务器域名: $SERVER_DOMAIN"
 
 # 生成CA私钥和证书
 openssl genrsa -out caKey.pem 2048
@@ -20,20 +28,31 @@ openssl req -new -x509 -days 3650 -key caKey.pem -out caCert.pem \
 openssl genrsa -out serverKey.pem 2048
 
 # 生成服务器证书签名请求
-# CN 必须和 ipsec.conf leftid 以及 mobileconfig RemoteIdentifier 完全一致
+# CN 用域名（如果有），否则用 IP
+SERVER_CN="${SERVER_DOMAIN:-$SERVER_IP}"
 openssl req -new -key serverKey.pem -out serverReq.pem \
-    -subj "/C=CN/ST=Beijing/L=Beijing/O=VPN Location Spoofer/OU=Server/CN=$SERVER_IP"
+    -subj "/C=CN/ST=Beijing/L=Beijing/O=VPN Location Spoofer/OU=Server/CN=$SERVER_CN"
 
-# 添加 SAN（iOS 16+ 要求证书包含 IP SAN）
-# 判断是 IP 还是域名，SAN 格式不同
+# 构建 SAN 条目（支持 IP + DNS 双 SAN）
+SAN_ENTRIES=""
 if echo "$SERVER_IP" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
-  SAN="IP:$SERVER_IP"
+  SAN_ENTRIES="IP:$SERVER_IP"
 else
-  SAN="DNS:$SERVER_IP"
+  SAN_ENTRIES="DNS:$SERVER_IP"
 fi
 
+if [ -n "$SERVER_DOMAIN" ]; then
+  if [ -n "$SAN_ENTRIES" ]; then
+    SAN_ENTRIES="$SAN_ENTRIES,DNS:$SERVER_DOMAIN"
+  else
+    SAN_ENTRIES="DNS:$SERVER_DOMAIN"
+  fi
+fi
+
+echo "证书 SAN: $SAN_ENTRIES"
+
 cat > /tmp/server_ext.cnf << EOF
-subjectAltName = $SAN
+subjectAltName = $SAN_ENTRIES
 extendedKeyUsage = serverAuth
 EOF
 
@@ -66,7 +85,7 @@ with open(path, 'r', encoding='utf-8') as f:
 # mobileconfig 结构：<key>PayloadContent</key><data>...</data> 紧跟在证书 payload 块里
 # 用包含 com.apple.security.root 的 dict 块来定位，再替换其中的 PayloadContent <data>
 # 先找到包含 com.apple.security.root 的整个 <dict>...</dict> 块，再替换其中的 PayloadContent
-pattern = r'(<dict>(?:(?!<dict>|</dict>).|\n)*?<string>com\.apple\.security\.root</string>(?:(?!<dict>|</dict>).|\n)*?<key>PayloadContent</key>\s*<data>)[^<]*(</data>)'
+pattern = r'(<dict>(?:(?!</dict>).)*?<string>com\.apple\.security\.root</string>(?:(?!</dict>).)*?<key>PayloadContent</key>\s*<data>)[^<]*(</data>)'
 replacement = r'\g<1>' + new_b64 + r'\g<2>'
 
 new_content, count = re.subn(pattern, replacement, content, flags=re.DOTALL)
@@ -139,18 +158,22 @@ else
 
   # 部署配置文件，并将 SERVER_IP 占位符替换为实际 IP
   # ipsec.conf: left= 和 leftid= 替换
+  # 如果有 SERVER_DOMAIN，leftid 用域名
+  LEFTID="${SERVER_DOMAIN:-$SERVER_IP}"
   sed "s/left=192\.168\.10\.7/left=$SERVER_IP/g;
-       s/leftid=192\.168\.10\.7/leftid=$SERVER_IP/g" \
+       s/leftid=192\.168\.10\.7/leftid=$LEFTID/g;
+       s/leftid=map\.iosr\.cn/leftid=$LEFTID/g" \
     "$SCRIPT_DIR/ipsec.conf" | sudo tee "$IPSEC_BASE/etc/ipsec.conf" > /dev/null
 
   # ipsec.secrets: 直接复制（不含 IP）
   sudo cp "$SCRIPT_DIR/ipsec.secrets" "$IPSEC_BASE/etc/ipsec.secrets"
 
   # swanctl.conf: id = 替换
-  sed "s/id = 192\.168\.10\.7/id = $SERVER_IP/g" \
+  sed "s/id = 192\.168\.10\.7/id = $LEFTID/g;
+       s/id = map\.iosr\.cn/id = $LEFTID/g" \
     "$SCRIPT_DIR/swanctl.conf" | sudo tee "$IPSEC_BASE/etc/swanctl/swanctl.conf" > /dev/null
 
-  echo "ipsec.conf + ipsec.secrets + swanctl.conf 已部署（SERVER_IP=$SERVER_IP）"
+  echo "ipsec.conf + ipsec.secrets + swanctl.conf 已部署（left=$SERVER_IP, leftid=$LEFTID）"
 
   # sudo 检查运行状态（不用 sudo 会 permission denied 误判）
   if sudo "$IPSEC_BIN" status > /dev/null 2>&1; then
@@ -179,7 +202,7 @@ if [ "$(uname)" = "Darwin" ]; then
   # 写入最新规则（NAT + RDR，包含当前 SERVER_IP）
   sudo tee "$PF_ANCHOR" > /dev/null << EOF
 # NAT：VPN 客户端出网
-nat on en0 from 10.10.0.0/24 to any -> (en0)
+nat on en0 from 10.10.0.0/16 to any -> (en0)
 
 # RDR：绕过 macOS racoon 占用 500/4500，转给 charon 5500/5501
 rdr pass on en0 proto udp from any to $SERVER_IP port 500  -> $SERVER_IP port 5500
@@ -188,8 +211,7 @@ EOF
 
   # 确保 pf.conf 里有 rdr-anchor "vpn-location"
   if ! sudo grep -q 'rdr-anchor "vpn-location"' /etc/pf.conf; then
-    sudo sed -i '' 's|rdr-anchor "com.apple/\*"|rdr-anchor "com.apple/*"\
-rdr-anchor "vpn-location"|' /etc/pf.conf
+    sudo sed -i '' 's|rdr-anchor "com.apple/\*"|rdr-anchor "com.apple/*"\nrdr-anchor "vpn-location"|' /etc/pf.conf
     echo "pf.conf 已添加 rdr-anchor vpn-location"
   fi
 

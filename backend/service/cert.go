@@ -28,7 +28,7 @@ func GenerateRootCA() (certPEM, keyPEM []byte, err error) {
 			CommonName:   "VPN Location Root CA",
 		},
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(365 * 24 * time.Hour), // 1年有效期
+		NotAfter:              time.Now().Add(3650 * 24 * time.Hour), // 10年有效期
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
@@ -128,7 +128,7 @@ func GenerateClientCert(caCertPEM, caKeyPEM []byte, username string) (certPEM, k
 			CommonName:   username,
 		},
 		NotBefore:   time.Now(),
-		NotAfter:    time.Now().Add(365 * 24 * time.Hour), // 1年有效期
+		NotAfter:    time.Now().Add(3650 * 24 * time.Hour), // 10年有效期
 		KeyUsage:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		DNSNames:    []string{username},

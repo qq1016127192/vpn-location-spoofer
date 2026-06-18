@@ -107,7 +107,7 @@ conn ikev2-eap
     right=%any
     rightid=%any
     rightauth=eap-mschapv2
-    rightsourceip=10.10.0.0/24
+    rightsourceip=10.10.0.0/16
     rightdns=8.8.8.8,8.8.4.4
     eap_identity=%any
     auto=add
@@ -155,7 +155,7 @@ sysctl -w net.ipv4.ip_forward=1
 
 OUTIF=$(ip route | grep default | awk '{print $5}' | head -1)
 echo "出口网卡: $OUTIF"
-iptables -t nat -A POSTROUTING -s 10.10.0.0/24 -o $OUTIF -j MASQUERADE
+iptables -t nat -A POSTROUTING -s 10.10.0.0/16 -o $OUTIF -j MASQUERADE
 
 apt-get install -y iptables-persistent
 netfilter-persistent save

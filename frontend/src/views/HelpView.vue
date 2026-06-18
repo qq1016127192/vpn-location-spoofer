@@ -33,7 +33,7 @@ export default {
   data: () => ({
     vpnSteps: [
       { title: '下载并安装描述文件', desc: '点击"下载配置"，Safari 会提示"此网站正尝试下载一个配置描述文件"，点允许，然后去 设置 → 通用 → VPN与设备管理 找到描述文件并安装。' },
-      { title: '信任根证书', desc: '设置 → 通用 → 关于本机 → 证书信任设置，找到 VPN Root CA 并打开信任开关。安装描述文件后才会出现此选项。', important: true },
+      { title: '信任根证书', desc: '设置 → 通用 → 关于本机 → 证书信任设置，找到 wzgo.cc Virtual Location Root CA 并打开信任开关。安装描述文件后才会出现此选项。', important: true },
       { title: '连接 VPN', desc: '设置 → VPN，选择 wzgo.cc 虚拟定位，点击连接。VPN 已配置按需自动连接，断网恢复后会自动重连。' }
     ],
     locSteps: [

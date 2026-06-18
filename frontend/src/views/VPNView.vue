@@ -5,6 +5,19 @@
       <div class="app-sub">iOS 虚拟定位工具</div>
     </div>
 
+    <!-- VPN 状态检测卡片 -->
+    <div class="status-card" :class="{ connected: vpnConnected }" @click="checkVpn">
+      <div class="status-dot" :class="{ active: vpnConnected, checking: checking }"></div>
+      <div class="status-info">
+        <div class="status-label">{{ statusLabel }}</div>
+        <div class="status-desc">{{ statusDesc }}</div>
+      </div>
+      <div class="status-action" @click.stop="checkVpn">
+        <span v-if="checking" class="loading-icon">⟳</span>
+        <span v-else class="refresh-icon">↻</span>
+      </div>
+    </div>
+
     <div class="section-label">使用步骤</div>
     <div class="group">
       <div class="list-row" v-for="(s,i) in steps" :key="i" @click="toggleStep(i)">
@@ -34,7 +47,34 @@
           <button class="modal-close" @click="showDownload = false">✕</button>
         </div>
         <div class="modal-body">
-          <button class="btn-primary" @click="download" :disabled="loading">{{ loading ? '生成中…' : '下载网络配置文件' }}</button>
+          <!-- 未登录：登录/注册 -->
+          <template v-if="!user">
+            <div class="auth-tabs">
+              <button :class="{ active: authTab === 'login' }" @click="authTab = 'login'">登录</button>
+              <button :class="{ active: authTab === 'register' }" @click="authTab = 'register'">注册</button>
+            </div>
+            <div v-if="authTab === 'login'" class="auth-form">
+              <input v-model="loginForm.username" placeholder="用户名" autocomplete="username" @keydown.enter="doLogin" />
+              <input v-model="loginForm.password" type="password" placeholder="密码" autocomplete="current-password" @keydown.enter="doLogin" />
+              <button class="btn-primary" @click="doLogin" :disabled="authLoading">{{ authLoading ? '登录中…' : '登录' }}</button>
+            </div>
+            <div v-else class="auth-form">
+              <input v-model="regForm.username" placeholder="用户名（3位以上，字母数字下划线）" autocomplete="username" @keydown.enter="doRegister" />
+              <input v-model="regForm.password" type="password" placeholder="密码（6位以上）" autocomplete="new-password" @keydown.enter="doRegister" />
+              <button class="btn-primary" @click="doRegister" :disabled="authLoading">{{ authLoading ? '注册中…' : '注册' }}</button>
+            </div>
+            <div v-if="authError" class="auth-error">{{ authError }}</div>
+          </template>
+
+          <!-- 已登录：显示下载 -->
+          <template v-else>
+            <div class="user-bar">
+              <span class="user-name">{{ user.username }}</span>
+              <button class="logout-btn" @click="doLogout">退出</button>
+            </div>
+            <button class="btn-primary" @click="download" :disabled="loading">{{ loading ? '生成中…' : '下载网络配置文件' }}</button>
+          </template>
+
           <div class="section-label">安装步骤</div>
           <div class="group">
             <div class="list-row" v-for="(s,i) in downloadSteps" :key="i">
@@ -84,13 +124,26 @@
 </template>
 
 <script>
-import { vpnAPI } from '../api'
+import { vpnAPI, authAPI } from '../api'
 export default {
   name: 'VPNView',
   data: () => ({
     showDownload: false,
     showHelp: false,
     loading: false,
+    // 认证状态
+    user: null,
+    authTab: 'login',
+    authLoading: false,
+    authError: '',
+    loginForm: { username: '', password: '' },
+    regForm: { username: '', password: '' },
+    // VPN 状态检测
+    checking: false,
+    vpnConnected: false,
+    checkTimer: null,
+    // 保存当前客户端IP，用于MapView查询自己的状态
+    clientIP: '',
     steps: [
       { title: '下载配置', desc: '点击"下载配置"，Safari 弹出提示后点允许下载。' },
       { title: '安装描述文件', desc: '设置 → 通用 → VPN与设备管理，找到描述文件并安装。' },
@@ -115,11 +168,50 @@ export default {
       { title: '恢复位置', desc: '断开代理，关闭再打开定位服务即可恢复。' }
     ]
   }),
-  mounted() {},
+  mounted() {
+    this.checkLogin()
+    this.checkVpn()
+    // 每 15 秒自动检测一次
+    this.checkTimer = setInterval(() => this.checkVpn(true), 15000)
+  },
+  beforeUnmount() {
+    if (this.checkTimer) clearInterval(this.checkTimer)
+  },
+  computed: {
+    statusLabel() {
+      if (this.checking) return '检测中…'
+      return this.vpnConnected ? 'VPN 已连接' : 'VPN 未连接'
+    },
+    statusDesc() {
+      if (this.checking) return '正在检测连接状态'
+      if (this.vpnConnected) return '可以设置虚拟定位了'
+      return '请先在 iOS 设置中连接 VPN'
+    }
+  },
   methods: {
     toggleStep(index) {
       const idx = this.expandedSteps.indexOf(index)
       if (idx > -1) { this.expandedSteps.splice(idx, 1) } else { this.expandedSteps.push(index) }
+    },
+    async checkVpn(silent = false) {
+      if (this.checking) return
+      this.checking = true
+      try {
+        // 检查连接时，先传递当前保存的clientIP（如果有）
+        const res = await vpnAPI.checkConnection(this.clientIP)
+        this.vpnConnected = res.data.connected
+        this.clientIP = res.data.client_ip
+        if (this.clientIP) {
+          localStorage.setItem('vpn_client_ip', this.clientIP)
+        }
+      } catch (e) {
+        if (!silent) {
+          this.vpnConnected = false
+          // 不要清除clientIP，保留上次的
+        }
+      } finally {
+        this.checking = false
+      }
     },
     async download() {
       this.loading = true
@@ -130,6 +222,36 @@ export default {
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
       } catch { alert('下载失败，请稍后重试') }
       finally { this.loading = false }
+    },
+    async checkLogin() {
+      try {
+        const res = await authAPI.getProfile()
+        this.user = res.data
+      } catch { this.user = null }
+    },
+    async doLogin() {
+      this.authError = ''
+      if (!this.loginForm.username || !this.loginForm.password) { this.authError = '请填写用户名和密码'; return }
+      this.authLoading = true
+      try {
+        const res = await authAPI.login(this.loginForm)
+        this.user = res.data
+      } catch (e) { this.authError = e.response?.data?.error || '登录失败' }
+      finally { this.authLoading = false }
+    },
+    async doRegister() {
+      this.authError = ''
+      if (!this.regForm.username || !this.regForm.password) { this.authError = '请填写用户名和密码'; return }
+      this.authLoading = true
+      try {
+        const res = await authAPI.register(this.regForm)
+        this.user = res.data
+      } catch (e) { this.authError = e.response?.data?.error || '注册失败' }
+      finally { this.authLoading = false }
+    },
+    async doLogout() {
+      try { await authAPI.logout() } catch {}
+      this.user = null
     }
   }
 }
@@ -144,6 +266,53 @@ export default {
 .head { padding: 8px 0 4px; }
 .app-name { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
 .app-sub { font-size: 13px; color: var(--text4); margin-top: 4px; }
+
+/* VPN 状态卡片 */
+.status-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color .2s ease, transform .15s ease;
+}
+.status-card:active { transform: scale(.99); }
+.status-card.connected { border-color: #34c759; }
+.status-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--text4);
+  flex-shrink: 0;
+  transition: background .3s ease;
+}
+.status-dot.active {
+  background: #34c759;
+  box-shadow: 0 0 0 4px rgba(52,199,89,.2);
+  animation: pulse-green 2s ease-in-out infinite;
+}
+.status-dot.checking {
+  background: var(--text3);
+  animation: pulse-gray 1s ease-in-out infinite;
+}
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(52,199,89,.2); }
+  50% { box-shadow: 0 0 0 8px rgba(52,199,89,.1); }
+}
+@keyframes pulse-gray {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+.status-info { flex: 1; min-width: 0; }
+.status-label { font-size: 15px; font-weight: 600; color: var(--text); }
+.status-desc { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.status-action { flex-shrink: 0; padding: 4px; }
+.refresh-icon, .loading-icon {
+  font-size: 18px; color: var(--text3);
+  display: inline-block;
+}
+.loading-icon { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .section-label { font-size: 11px; color: var(--text4); text-transform: uppercase; letter-spacing: .8px; padding: 0 2px; }
 .list-row {
   display: flex; align-items: flex-start; gap: 12px;
@@ -178,7 +347,11 @@ export default {
 }
 .modal {
   position: fixed;
-  left: 16px; right: 16px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 420px;
   bottom: 0;
   max-height: 85vh;
   background: var(--bg);
@@ -212,4 +385,18 @@ export default {
 .modal-enter-from, .modal-leave-to { transform: translateY(100%); }
 .tip { text-align: center; font-size: 14px; color: var(--text4); }
 .link { color: var(--text3); cursor: pointer; text-decoration: underline; text-decoration-color: var(--border); }
+
+/* 认证相关 */
+.auth-tabs { display: flex; gap: 0; margin-bottom: 12px; }
+.auth-tabs button { flex: 1; padding: 10px; background: none; border: 1px solid var(--border); color: var(--text4); font-size: 14px; cursor: pointer; transition: all .2s; }
+.auth-tabs button:first-child { border-radius: 8px 0 0 8px; }
+.auth-tabs button:last-child { border-radius: 0 8px 8px 0; }
+.auth-tabs button.active { background: var(--text2); color: var(--bg); border-color: var(--text2); }
+.auth-form { display: flex; flex-direction: column; gap: 10px; }
+.auth-form input { padding: 12px 14px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; font-size: 15px; color: var(--text); outline: none; }
+.auth-form input::placeholder { color: var(--text5); }
+.auth-error { margin-top: 8px; padding: 10px; background: rgba(255,59,48,.1); border-radius: 8px; font-size: 13px; color: #ff3b30; text-align: center; }
+.user-bar { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; }
+.user-name { flex: 1; font-size: 15px; font-weight: 500; color: var(--text); }
+.logout-btn { background: none; border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; font-size: 12px; color: var(--text4); cursor: pointer; }
 </style>
