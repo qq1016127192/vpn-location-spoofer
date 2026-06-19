@@ -400,7 +400,6 @@ export default {
     lastHitTime: 0,
     lastHitAgo: '',
     statusTimer: null,
-    // 从VPNView获取的客户端IP
     clientIP: '',
     // 搜索历史
     searchHistory: JSON.parse(localStorage.getItem('search_history') || '[]'),
@@ -458,12 +457,8 @@ export default {
   mounted() {
     this.initMap()
     this.startStatusPolling()
-    // 从VPNView获取客户端IP
-    this.clientIP = localStorage.getItem('vpn_client_ip') || ''
-    // 如果没有，先尝试检查VPN获取一次
-    if (!this.clientIP) {
-      this.tryGetClientIP()
-    }
+    // 从服务器获取客户端IP（用于显示连接状态）
+    this.tryGetClientIP()
     // 解析 URL 参数
     const params = new URLSearchParams(window.location.search)
     const lat = parseFloat(params.get('lat'))
@@ -490,7 +485,6 @@ export default {
         const res = await vpnAPI.checkConnection()
         if (res.data.client_ip) {
           this.clientIP = res.data.client_ip
-          localStorage.setItem('vpn_client_ip', this.clientIP)
         }
       } catch {}
     },
@@ -601,7 +595,7 @@ export default {
       }
       this.locking = true
       try {
-        await locationAPI.setSpoofLocation({ latitude: this.lat, longitude: this.lng }, this.clientIP)
+        await locationAPI.setSpoofLocation({ latitude: this.lat, longitude: this.lng })
         this.locked = true
         this.lastLockedLocation = { lat: this.lat, lng: this.lng }
         const locationName = this.currentLocationName || `位置 ${this.lat.toFixed(4)},${this.lng.toFixed(4)}`
@@ -720,7 +714,7 @@ export default {
     },
     async fetchStatus() {
       try {
-        const res = await locationAPI.getStatus(this.clientIP)
+        const res = await locationAPI.getStatus()
         this.hitCount = res.data.hit_count || 0
         this.lastHitTime = res.data.last_hit || 0
       } catch {}
@@ -807,7 +801,7 @@ export default {
         const p = this.routePoints[this.routeIdx]
         this.lat = p.lat; this.lng = p.lng
         this.map.panTo([p.lat, p.lng])
-        locationAPI.setSpoofLocation({ latitude: p.lat, longitude: p.lng }, this.clientIP)
+        locationAPI.setSpoofLocation({ latitude: p.lat, longitude: p.lng })
         this.routeIdx++
       }, Math.max(500, interval))
     },
@@ -831,7 +825,7 @@ export default {
         const p = this.multiPoints[idx]
         this.lat = p.lat; this.lng = p.lng
         this.map.panTo([p.lat, p.lng])
-        locationAPI.setSpoofLocation({ latitude: p.lat, longitude: p.lng }, this.clientIP)
+        locationAPI.setSpoofLocation({ latitude: p.lat, longitude: p.lng })
         this.showToast(`已切换到点 ${idx + 1}`)
         idx++
       }
@@ -870,7 +864,7 @@ export default {
       this.lat -= this.jkY * step
       this.lng += this.jkX * step
       this.map.panTo([this.lat, this.lng])
-      locationAPI.setSpoofLocation({ latitude: this.lat, longitude: this.lng }, this.clientIP)
+      locationAPI.setSpoofLocation({ latitude: this.lat, longitude: this.lng })
     }
   },
   watch: {

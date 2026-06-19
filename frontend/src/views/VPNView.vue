@@ -144,6 +144,7 @@ export default {
     checkTimer: null,
     // 保存当前客户端IP，用于MapView查询自己的状态
     clientIP: '',
+    vpnUser: '',
     steps: [
       { title: '下载配置', desc: '点击"下载配置"，Safari 弹出提示后点允许下载。' },
       { title: '安装描述文件', desc: '设置 → 通用 → VPN与设备管理，找到描述文件并安装。' },
@@ -204,10 +205,16 @@ export default {
         if (this.clientIP) {
           localStorage.setItem('vpn_client_ip', this.clientIP)
         }
+        // 核心：保存 vpn_user 到 localStorage，供 MapView 使用
+        // vpn_user 是多用户数据隔离的关键，比 clientIP 更稳定
+        if (res.data.vpn_user) {
+          this.vpnUser = res.data.vpn_user
+          localStorage.setItem('vpn_user', this.vpnUser)
+        }
       } catch (e) {
         if (!silent) {
           this.vpnConnected = false
-          // 不要清除clientIP，保留上次的
+          // 不要清除clientIP和vpnUser，保留上次的
         }
       } finally {
         this.checking = false

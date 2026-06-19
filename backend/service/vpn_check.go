@@ -9,10 +9,10 @@ import (
 
 // VPNCheckService VPN连接检测服务
 type VPNCheckService struct {
-	mu              sync.RWMutex
-	connectedIPs    map[string]bool   // 已连接的 VPN IP（虚拟 IP）
-	vpnSubnets      []string          // VPN 分配的网段
-	serverPublicIP  string            // 服务器公网 IP（固定配置）
+	mu             sync.RWMutex
+	connectedIPs   map[string]bool // 已连接的 VPN IP（虚拟 IP）
+	vpnSubnets     []string        // VPN 分配的网段
+	serverPublicIP string          // 服务器公网 IP（固定配置）
 }
 
 var vpnCheckService *VPNCheckService
@@ -134,6 +134,66 @@ func (s *VPNCheckService) queryIPSecConnections() ([]string, bool) {
 	}
 
 	return publicIPs, len(publicIPs) > 0
+}
+
+// queryIPSecConnectionMapping 查询 ipsec statusall 获取公网IP到VPN虚拟IP的映射
+// 返回：map[公网IP]VPN虚拟IP
+func (s *VPNCheckService) queryIPSecConnectionMapping() map[string]string {
+	cmd := exec.Command("ipsec", "statusall")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil
+	}
+
+	// ikev2-eap[3]: ESTABLISHED 3 minutes ago, 172.16.29.124[map.iosr.cn]...39.182.37.31[192.168.10.9]
+	// ikev2-eap{3}:  INSTALLED, TUNNEL, reqid 2, ESP in UDP SPIs: cff7b639_i 00f6cce8_o
+	// ikev2-eap{3}:   0.0.0.0/0 === 10.10.0.8/32
+	// 匹配：客户端公网IP和对应的VPN虚拟IP
+	reClientIP := regexp.MustCompile(`\.\.\.(\d+\.\d+\.\d+\.\d+)\[`)
+	reVPNIP := regexp.MustCompile(`=== (\d+\.\d+\.\d+\.\d+)/32`)
+
+	mapping := make(map[string]string)
+	lines := strings.Split(string(output), "\n")
+	var currentPublicIP string
+
+	for _, line := range lines {
+		// 查找客户端公网IP
+		if matches := reClientIP.FindStringSubmatch(line); len(matches) > 1 {
+			currentPublicIP = matches[1]
+		}
+		// 查找对应的VPN虚拟IP
+		if currentPublicIP != "" {
+			if matches := reVPNIP.FindStringSubmatch(line); len(matches) > 1 {
+				vpnIP := matches[1]
+				mapping[currentPublicIP] = vpnIP
+				currentPublicIP = "" // 重置，避免重复匹配
+			}
+		}
+	}
+
+	return mapping
+}
+
+// GetVPNClientIP 根据公网IP获取对应的VPN虚拟IP
+// 如果找不到映射，返回空字符串
+func (s *VPNCheckService) GetVPNClientIP(publicIP string) string {
+	mapping := s.queryIPSecConnectionMapping()
+	if vpnIP, ok := mapping[publicIP]; ok {
+		return vpnIP
+	}
+
+	// 如果请求来自服务器公网IP（NAT回环），返回第一个活跃的VPN客户端IP
+	s.mu.RLock()
+	serverPublicIP := s.serverPublicIP
+	s.mu.RUnlock()
+	if publicIP == serverPublicIP {
+		// 返回第一个VPN客户端IP
+		for _, vpnIP := range mapping {
+			return vpnIP
+		}
+	}
+
+	return ""
 }
 
 // AddConnectedIP 添加已连接的 VPN IP

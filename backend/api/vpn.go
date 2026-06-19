@@ -126,6 +126,13 @@ func SetSpoofLocation(c *gin.Context) {
 	}
 	clientIP = service.GetClientIP(clientIP)
 
+	// 如果获取到的是公网IP，尝试查找对应的VPN客户端IP
+	// 通过VPN服务获取当前连接的客户端IP列表
+	vpnService := service.GetVPNCheckService()
+	if vpnIP := vpnService.GetVPNClientIP(clientIP); vpnIP != "" {
+		clientIP = vpnIP
+	}
+
 	proxy := mitm.GetLocationProxy(8081)
 	proxy.SetSpoofLocation(clientIP, req.Latitude, req.Longitude)
 
@@ -133,6 +140,7 @@ func SetSpoofLocation(c *gin.Context) {
 		"message":   "虚拟位置设置成功",
 		"latitude":  req.Latitude,
 		"longitude": req.Longitude,
+		"client_ip": clientIP,
 	})
 }
 
@@ -150,6 +158,12 @@ func GetMapStatus(c *gin.Context) {
 		clientIP = c.ClientIP()
 	}
 	clientIP = service.GetClientIP(clientIP)
+
+	// 如果获取到的是公网IP，尝试查找对应的VPN客户端IP
+	vpnService := service.GetVPNCheckService()
+	if vpnIP := vpnService.GetVPNClientIP(clientIP); vpnIP != "" {
+		clientIP = vpnIP
+	}
 
 	proxy := mitm.GetLocationProxy(8081)
 	hit := proxy.GetHitStats(clientIP)
@@ -182,9 +196,9 @@ func CheckVPNConnection(c *gin.Context) {
 	connected := vpnService.CheckConnection(clientIP)
 
 	c.JSON(200, gin.H{
-		"connected":      connected,
-		"message":       connectedMessage(connected),
-		"client_ip":     clientIP,
+		"connected": connected,
+		"message":   connectedMessage(connected),
+		"client_ip": clientIP,
 	})
 }
 

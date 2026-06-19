@@ -22,12 +22,12 @@ func distPath() string {
 	wd, _ := os.Getwd()
 	// 按优先级尝试多个候选路径
 	candidates := []string{
-		filepath.Join(wd, "frontend", "dist"),          // 项目根/frontend/dist
-		filepath.Join(wd, "..", "frontend", "dist"),    // backend/../frontend/dist
-		filepath.Join(wd, "frontend"),                   // 项目根/frontend (dist内容直接散落)
-		filepath.Join(wd, "..", "frontend"),             // backend/../frontend
-		"/opt/vpn-location/frontend/dist",               // 服务器部署路径
-		"/opt/vpn-location/frontend",                    // 服务器部署路径(dist内容)
+		filepath.Join(wd, "frontend", "dist"),       // 项目根/frontend/dist
+		filepath.Join(wd, "..", "frontend", "dist"), // backend/../frontend/dist
+		filepath.Join(wd, "frontend"),               // 项目根/frontend (dist内容直接散落)
+		filepath.Join(wd, "..", "frontend"),         // backend/../frontend
+		"/opt/vpn-location/frontend/dist",           // 服务器部署路径
+		"/opt/vpn-location/frontend",                // 服务器部署路径(dist内容)
 	}
 	for _, dir := range candidates {
 		if _, err := os.Stat(filepath.Join(dir, "index.html")); err == nil {
@@ -70,7 +70,16 @@ func SetupRoutes(r *gin.Engine) {
 	// 添加常用定位服务域名排除，确保第三方应用定位正常
 	r.GET("/proxy.pac", func(c *gin.Context) {
 		serverAddr := config.Config.VPN.ServerAddress
+		// iOS设备通过VPN连接后，使用服务器的VPN内网IP访问代理
+		// 从VPN配置看，leftsubnet=0.0.0.0/0，服务器端没有绑定特定VPN虚拟IP
+		// iOS设备应该使用服务器的真实IP或通过VPN隧道访问
+		// 这里使用服务器内网IP（172.16.29.124），iOS设备通过VPN隧道可以访问
+		proxyHost := "172.16.29.124" // 服务器内网IP
 		pac := fmt.Sprintf(`function FindProxyForURL(url, host) {
+    // 服务器自身流量直连（通过VPN隧道）
+    if (host == "%s" || host.includes("%s")) {
+        return "DIRECT";
+    }
     // Apple定位服务走MITM代理（支持iOS 17~27）
     if (host == "gs-loc.apple.com" || 
         host == "gs-loc-cn.apple.com" || 
@@ -95,7 +104,7 @@ func SetupRoutes(r *gin.Engine) {
     }
     // 其他流量直连
     return "DIRECT";
-}`, serverAddr)
+}`, serverAddr, serverAddr, proxyHost)
 		c.Header("Content-Type", "application/x-ns-proxy-autoconfig")
 		c.String(200, pac)
 	})
@@ -129,7 +138,7 @@ func SetupRoutes(r *gin.Engine) {
 			return
 		}
 		// 使用高德地图逆地理编码API
-	url := fmt.Sprintf("https://restapi.amap.com/v3/geocode/regeo?output=json&location=%s,%s&key=9609abf363a3f7c1e377ef7cf04cde8b8aa0&radius=1000", lon, lat)
+		url := fmt.Sprintf("https://restapi.amap.com/v3/geocode/regeo?output=json&location=%s,%s&key=9609abf363a3f7c1e377ef7cf04cde8b8aa0&radius=1000", lon, lat)
 		req, _ := http.NewRequest("GET", url, nil)
 		req.Header.Set("User-Agent", "VPNLocationApp/1.0")
 		resp, err := http.DefaultClient.Do(req)

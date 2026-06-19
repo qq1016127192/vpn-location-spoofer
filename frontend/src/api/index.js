@@ -34,22 +34,14 @@ export const vpnAPI = {
   downloadConfig: () => api.get('/vpn/download', {
     responseType: 'blob'
   }),
-  checkConnection: (clientIP) => api.get('/check', {
-    params: clientIP ? { client_ip: clientIP } : undefined
-  })
+  checkConnection: () => api.get('/check')
 }
 
-// 位置相关API
+// 位置相关API —— 直接用客户端IP作为key
 export const locationAPI = {
-  lockLocation: (data, clientIP) => api.post('/map/lock', data, {
-    params: clientIP ? { client_ip: clientIP } : undefined
-  }),
-  setSpoofLocation: (data, clientIP) => api.post('/map/spoof', data, {
-    params: clientIP ? { client_ip: clientIP } : undefined
-  }),
-  getStatus: (clientIP) => api.get('/map/status', {
-    params: clientIP ? { client_ip: clientIP } : undefined
-  })
+  lockLocation: (data) => api.post('/map/lock', data),
+  setSpoofLocation: (data) => api.post('/map/spoof', data),
+  getStatus: () => api.get('/map/status')
 }
 
 export default api
