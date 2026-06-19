@@ -212,8 +212,14 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/api/logout", service.Logout)
 	r.GET("/api/profile", service.GetProfile)
 	r.GET("/api/check", api.CheckVPNConnection)
-	r.GET("/api/map/status", api.GetMapStatus)
-	r.POST("/api/map/spoof", api.SetSpoofLocation)
+
+	// 可选认证的路由：已登录用户获得更好的多用户隔离
+	optionalAuthGroup := r.Group("/api")
+	optionalAuthGroup.Use(service.AuthOptional())
+	{
+		optionalAuthGroup.GET("/map/status", api.GetMapStatus)
+		optionalAuthGroup.POST("/map/spoof", api.SetSpoofLocation)
+	}
 
 	// 需要登录的 API 路由
 	authGroup := r.Group("/api")

@@ -121,6 +121,17 @@ func AuthRequired() gin.HandlerFunc {
 	}
 }
 
+// AuthOptional 可选认证中间件：如果用户已登录则设置username，未登录则继续
+func AuthOptional() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username := getUsername(c)
+		if username != "" {
+			c.Set("username", username)
+		}
+		c.Next()
+	}
+}
+
 // --- 内部工具函数 ---
 
 func createSession(username string) string {

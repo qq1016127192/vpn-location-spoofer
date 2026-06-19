@@ -34,7 +34,7 @@ export const vpnAPI = {
   downloadConfig: () => api.get('/vpn/download', {
     responseType: 'blob'
   }),
-  checkConnection: () => api.get('/check')
+  checkConnection: (clientIP) => api.get('/check', { params: { client_ip: clientIP } })
 }
 
 // 位置相关API —— 直接用客户端IP作为key

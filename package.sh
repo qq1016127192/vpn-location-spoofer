@@ -21,7 +21,6 @@ tar -czf $OUTPUT \
   --exclude=backend/vpn_server \
   --exclude=backend/backend \
   --exclude=frontend/node_modules \
-  --exclude=frontend/dist \
   --exclude=.DS_Store \
   --exclude='*.tar.gz' \
   --exclude=vpn-config/caKey.pem \
@@ -31,12 +30,7 @@ tar -czf $OUTPUT \
   --exclude=vpn-config/serverReq.pem \
   --exclude=vpn-config/caCert.srl \
   backend \
-  frontend/src \
-  frontend/index.html \
-  frontend/package.json \
-  frontend/vite.config.js \
-  frontend/postcss.config.js \
-  frontend/tailwind.config.js \
+  frontend \
   vpn-config/ipsec.conf \
   vpn-config/ipsec.secrets \
   vpn-config/swanctl.conf \

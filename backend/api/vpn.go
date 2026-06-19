@@ -113,24 +113,37 @@ func SetSpoofLocation(c *gin.Context) {
 		return
 	}
 
-	// 优先使用参数中的client_ip，其次使用VPN客户端IP
-	clientIP := c.Query("client_ip")
-	if clientIP == "" {
-		clientIP = c.GetHeader("X-Real-IP")
-	}
-	if clientIP == "" {
-		clientIP = c.GetHeader("X-Forwarded-For")
-	}
-	if clientIP == "" {
-		clientIP = c.ClientIP()
-	}
-	clientIP = service.GetClientIP(clientIP)
-
-	// 如果获取到的是公网IP，尝试查找对应的VPN客户端IP
-	// 通过VPN服务获取当前连接的客户端IP列表
+	// 优先使用用户身份获取VPN IP，确保多用户隔离
 	vpnService := service.GetVPNCheckService()
-	if vpnIP := vpnService.GetVPNClientIP(clientIP); vpnIP != "" {
-		clientIP = vpnIP
+	clientIP := ""
+
+	// 尝试从session获取用户名
+	username := c.GetString("username")
+	if username != "" {
+		// 使用用户名查找对应的VPN IP
+		if vpnIP := vpnService.GetVPNClientIPByUsername(username); vpnIP != "" {
+			clientIP = vpnIP
+		}
+	}
+
+	// 如果没有通过用户身份获取到IP，使用传统IP映射方式
+	if clientIP == "" {
+		clientIP = c.Query("client_ip")
+		if clientIP == "" {
+			clientIP = c.GetHeader("X-Real-IP")
+		}
+		if clientIP == "" {
+			clientIP = c.GetHeader("X-Forwarded-For")
+		}
+		if clientIP == "" {
+			clientIP = c.ClientIP()
+		}
+		clientIP = service.GetClientIP(clientIP)
+
+		// 如果获取到的是公网IP，尝试查找对应的VPN客户端IP
+		if vpnIP := vpnService.GetVPNClientIP(clientIP); vpnIP != "" {
+			clientIP = vpnIP
+		}
 	}
 
 	proxy := mitm.GetLocationProxy(8081)
@@ -146,23 +159,37 @@ func SetSpoofLocation(c *gin.Context) {
 
 // GetMapStatus 获取地图状态：是否已设置虚拟位置 + MITM 拦截统计
 func GetMapStatus(c *gin.Context) {
-	// 优先使用参数中的client_ip，其次使用VPN客户端IP
-	clientIP := c.Query("client_ip")
-	if clientIP == "" {
-		clientIP = c.GetHeader("X-Real-IP")
-	}
-	if clientIP == "" {
-		clientIP = c.GetHeader("X-Forwarded-For")
-	}
-	if clientIP == "" {
-		clientIP = c.ClientIP()
-	}
-	clientIP = service.GetClientIP(clientIP)
-
-	// 如果获取到的是公网IP，尝试查找对应的VPN客户端IP
+	// 优先使用用户身份获取VPN IP，确保多用户隔离
 	vpnService := service.GetVPNCheckService()
-	if vpnIP := vpnService.GetVPNClientIP(clientIP); vpnIP != "" {
-		clientIP = vpnIP
+	clientIP := ""
+
+	// 尝试从session获取用户名
+	username := c.GetString("username")
+	if username != "" {
+		// 使用用户名查找对应的VPN IP
+		if vpnIP := vpnService.GetVPNClientIPByUsername(username); vpnIP != "" {
+			clientIP = vpnIP
+		}
+	}
+
+	// 如果没有通过用户身份获取到IP，使用传统IP映射方式
+	if clientIP == "" {
+		clientIP = c.Query("client_ip")
+		if clientIP == "" {
+			clientIP = c.GetHeader("X-Real-IP")
+		}
+		if clientIP == "" {
+			clientIP = c.GetHeader("X-Forwarded-For")
+		}
+		if clientIP == "" {
+			clientIP = c.ClientIP()
+		}
+		clientIP = service.GetClientIP(clientIP)
+
+		// 如果获取到的是公网IP，尝试查找对应的VPN客户端IP
+		if vpnIP := vpnService.GetVPNClientIP(clientIP); vpnIP != "" {
+			clientIP = vpnIP
+		}
 	}
 
 	proxy := mitm.GetLocationProxy(8081)

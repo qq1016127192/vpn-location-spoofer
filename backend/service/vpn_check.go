@@ -10,9 +10,10 @@ import (
 // VPNCheckService VPN连接检测服务
 type VPNCheckService struct {
 	mu             sync.RWMutex
-	connectedIPs   map[string]bool // 已连接的 VPN IP（虚拟 IP）
-	vpnSubnets     []string        // VPN 分配的网段
-	serverPublicIP string          // 服务器公网 IP（固定配置）
+	connectedIPs   map[string]bool   // 已连接的 VPN IP（虚拟 IP）
+	vpnSubnets     []string          // VPN 分配的网段
+	serverPublicIP string            // 服务器公网 IP（固定配置）
+	userVPNMapping map[string]string // 用户名到VPN虚拟IP的映射
 }
 
 var vpnCheckService *VPNCheckService
@@ -25,6 +26,7 @@ func GetVPNCheckService() *VPNCheckService {
 			connectedIPs:   make(map[string]bool),
 			vpnSubnets:     make([]string, 0),
 			serverPublicIP: "116.62.147.43", // 固定服务器公网IP
+			userVPNMapping: make(map[string]string),
 		}
 		vpnCheckService.AddVPNSubnet("10.10.0.0/16")
 	})
@@ -174,6 +176,44 @@ func (s *VPNCheckService) queryIPSecConnectionMapping() map[string]string {
 	return mapping
 }
 
+// queryIPSecUserMapping 查询 ipsec statusall 获取EAP用户名到VPN虚拟IP的映射
+// 返回：map[EAP用户名]VPN虚拟IP
+func (s *VPNCheckService) queryIPSecUserMapping() map[string]string {
+	cmd := exec.Command("ipsec", "statusall")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil
+	}
+
+	// ikev2-eap[3]: ESTABLISHED 3 minutes ago, 172.16.29.124[map.iosr.cn]...39.182.37.31[192.168.10.9]
+	// ikev2-eap[3]: Remote EAP identity: vpn_bcdcd044552917d0
+	// ikev2-eap{3}:   0.0.0.0/0 === 10.10.0.8/32
+	// 匹配：EAP用户名和对应的VPN虚拟IP
+	reEAPUser := regexp.MustCompile(`Remote EAP identity: (\S+)`)
+	reVPNIP := regexp.MustCompile(`=== (\d+\.\d+\.\d+\.\d+)/32`)
+
+	mapping := make(map[string]string)
+	lines := strings.Split(string(output), "\n")
+	var currentEAPUser string
+
+	for _, line := range lines {
+		// 查找EAP用户名
+		if matches := reEAPUser.FindStringSubmatch(line); len(matches) > 1 {
+			currentEAPUser = matches[1]
+		}
+		// 查找对应的VPN虚拟IP
+		if currentEAPUser != "" {
+			if matches := reVPNIP.FindStringSubmatch(line); len(matches) > 1 {
+				vpnIP := matches[1]
+				mapping[currentEAPUser] = vpnIP
+				currentEAPUser = "" // 重置，避免重复匹配
+			}
+		}
+	}
+
+	return mapping
+}
+
 // GetVPNClientIP 根据公网IP获取对应的VPN虚拟IP
 // 如果找不到映射，返回空字符串
 func (s *VPNCheckService) GetVPNClientIP(publicIP string) string {
@@ -194,6 +234,38 @@ func (s *VPNCheckService) GetVPNClientIP(publicIP string) string {
 	}
 
 	return ""
+}
+
+// GetVPNClientIPByUsername 根据用户名获取对应的VPN虚拟IP
+// 如果找不到映射，返回空字符串
+func (s *VPNCheckService) GetVPNClientIPByUsername(username string) string {
+	// 先从缓存中查找
+	s.mu.RLock()
+	if vpnIP, ok := s.userVPNMapping[username]; ok {
+		s.mu.RUnlock()
+		return vpnIP
+	}
+	s.mu.RUnlock()
+
+	// 从IPSec实时查询
+	mapping := s.queryIPSecUserMapping()
+	if vpnIP, ok := mapping[username]; ok {
+		// 更新缓存
+		s.mu.Lock()
+		s.userVPNMapping[username] = vpnIP
+		s.mu.Unlock()
+		return vpnIP
+	}
+
+	return ""
+}
+
+// UpdateUserVPNMapping 更新用户到VPN IP的映射缓存
+func (s *VPNCheckService) UpdateUserVPNMapping() {
+	mapping := s.queryIPSecUserMapping()
+	s.mu.Lock()
+	s.userVPNMapping = mapping
+	s.mu.Unlock()
 }
 
 // AddConnectedIP 添加已连接的 VPN IP
